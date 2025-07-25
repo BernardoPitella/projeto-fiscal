@@ -1,0 +1,496 @@
+---
+title: "Projeto 2 - Fiscal"
+author: "Grupo 3: Bernardo Pitella, Hugo Gravatá, Rafael Emerick e Suzana Ribeiro"
+output: html_document
+---
+
+# **Estrutura do Projeto**
+
+Dividimos o projeto de acordo com os tópicos de cada slide (1 a 5) e as questões a serem respondidas em cada um deles. Para cada questão, haverá uma estrutura de específica para o trabalho ser melhor visualizado.
+
+
+# **1) Dívida pública X Taxa Selic**
+
+```{r setup, include=FALSE}
+#install.packages("ipeadatar")
+#install.packages("GGally")
+#install.packages("corrplot")
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(readr)
+library(ggplot2)
+library(ipeadatar)
+library(tidyr)
+library(GGally)
+library(plotly)
+library(corrplot)
+
+# INTRODUÇÃO
+
+# Buscar por termos no IPEAdata
+a=search_series("Selic")
+b=search_series("dívida bruta")
+c=search_series("dívida líquida")
+
+# Puxando SELIC
+Df = ipeadata("PAN_TJOVER")
+SELIC <- Df %>%
+  slice(27:50) %>% 
+  select(date, value) %>% 
+  rename(Data = date, Selic = value) 
+  
+# Puxando Divida Bruta do governo geral
+Df2 = ipeadata("WEO_DIVBRGGWEOBRA")
+Divida_Bruta <- Df2 %>%
+  select(date, value) %>% 
+  rename(Data = date, Divida_Bruta = value)
+
+# Puxando Divida Liquida do governo geral
+Df3 = ipeadata("WEO_DIVLIQGGWEOBRA")
+Divida_Liquida <- Df3 %>%
+  select(date, value) %>% 
+  rename(Data = date, Divida_Liquida = value)
+
+# Juntando as 3 séries com base na data
+df <- SELIC %>%
+  select(Data, selic = Selic) %>%
+  left_join(Divida_Bruta %>% select(Data, divida_bruta = Divida_Bruta), by = "Data") %>%
+  left_join(Divida_Liquida %>% select(Data, divida_liquida = Divida_Liquida), by = "Data") %>%
+  filter(Data >= as.Date("2000-01-01"))  # ajusta o período que você quiser
+
+df <- df %>%
+  mutate(across(where(is.numeric), ~round(.x, 2)))
+
+
+library(ggplot2)
+library(rbcb)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(plotly)
+
+##SUZANA
+saldo_corrente = get_series(23461)
+saldo_corrente = saldo_corrente %>% 
+  rename(saldo = `23461`)
+saldo_corrente = saldo_corrente[-c(21:30),]
+
+ggplot(saldo_corrente, aes(x = date, y= saldo)) + 
+  geom_line(color = "purple", size = 1)
+
+
+investimento = get_series(7966)
+investimento = investimento %>% 
+  rename(IED = '7966')
+investimento = investimento[-c(1:47),]
+
+combinado = merge(saldo_corrente, investimento)
+combinado <- pivot_longer(combinado, cols = c("saldo", "IED"), 
+                          names_to = "variavel", values_to = "valor")
+
+cor_invest = investimento[,-1]
+cor_saldo = saldo_corrente[,-1]
+
+cor_invest$IED = as.numeric(cor_invest$IED)
+cor_saldo$saldo = as.numeric(cor_saldo$saldo)
+
+cor(cor_invest, cor_saldo)
+
+investimento_2 = get_series(7966)
+investimento_2 = investimento_2 %>% 
+  rename(IED = '7966')
+
+
+library(ggplot2)
+library(rbcb)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(plotly)
+library(ipeadatar)
+library(knitr)
+library(kableExtra)
+```
+
+# • Relação da evolução da dívida pública com a trajetória da Selic ao longo do tempo
+
+Esta seção do trabalho tem como objetivo:
+
+Analisar a relação entre a dívida pública e a taxa Selic ao longo do tempo, com base em dados empíricos. A análise será dividida em dois eixos principais:
+
+• Explorar como a trajetória da dívida pública se comporta em relação à evolução da taxa Selic, com base em diferentes métricas da dívida (bruta e líquida).
+
+• Investigar como variações na taxa de juros e nas métricas da dívida refletem mudanças nas condições fiscais e na condução da política monetária.
+
+
+### Análise 1 - Gráfico da trajetória:
+
+O gráfico de linhas a seguir mostra a evolução da Selic, da dívida bruta e da dívida líquida ao longo do tempo. Tal gráfico:
+
+• Permite observar padrões entre juros e dívida pública.
+
+• Destaca como a dívida líquida é mais sensível à Selic.
+
+• Mostra períodos em que alta de juros coincidiu com aumento da dívida.
+
+• Ajuda a comparar o comportamento da dívida bruta e líquida diante de diferentes choques econômicos.
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+df_long <- df %>%
+  pivot_longer(cols = -Data, names_to = "Variável", values_to = "Valor")
+
+ggplot(df_long, aes(x = Data, y = Valor, color = Variável)) +
+  geom_line(size = 1) +
+  labs(title = "Evolução da Selic e da Dívida Pública (2000–2023)",
+       x = "Ano", y = "Percentual do PIB ou Taxa ao ano",
+       color = "Indicador") +
+  theme_minimal()
+```
+
+
+### Análise 2 - Correlação entre as variáveis:
+
+Nesta etapa, a matriz de correlação quantifica a relação entre a Selic, a dívida bruta e a dívida líquida, permitindo avaliar o grau de associação entre essas variáveis ao longo do tempo. Em relação à matriz:
+
+• Mostra se os indicadores se movem juntos (correlação positiva) ou em direções opostas (negativa).
+
+• A correlação entre Selic e dívida líquida tende a ser mais forte, refletindo a maior sensibilidade da dívida líquida aos juros.
+
+• A dívida bruta, por ser menos volátil, apresenta correlação mais fraca ou até negativa com a Selic.
+
+• Reforça a importância de distinguir as métricas da dívida ao analisar os efeitos da política monetária.
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+# Selecionar apenas colunas numéricas
+matriz <- df %>% select(selic, divida_bruta, divida_liquida) %>% cor(use = "complete.obs")
+
+# Plotar heatmap de correlação
+corrplot(matriz, method = "color", addCoef.col = "black",
+         type = "upper", tl.col = "black", tl.srt = 45,
+         title = "Matriz de Correlação", mar = c(0,0,1,0))
+```
+
+
+### Análise 3 - Tendência em períodos específicos:
+
+Crises abordadas:
+
+• Crise eleitoral cambial de 2002
+
+• Crise financeira global de 2008
+
+• Reajuste tarifário de 2015
+
+• Crise energética de 2021
+
+• Intervenções tarifárias pré-eleitorais de 2022 
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# DataFrame com períodos de crise
+crises <- data.frame(
+  xmin = as.Date(c("2002-01-01", "2008-09-01", "2015-01-01", "2020-03-01")),
+  xmax = as.Date(c("2003-01-01", "2009-06-01", "2016-01-01", "2021-12-01")),
+  ymin = -Inf,
+  ymax = Inf
+)
+
+# Gráfico
+graf.longo.tempo.1 <- ggplot(df_long, aes(x = Data, y = Valor, color = Variável)) +
+  geom_rect(data = crises, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = "grey20", alpha = 0.4, inherit.aes = FALSE) +
+  geom_line(size = 1) +
+  facet_wrap(~Variável, scales = "free_y", ncol = 1) +
+  scale_y_continuous(labels = label_percent(scale = 1)) +
+  theme_minimal() +
+  labs(title = "Selic e Dívida Pública ao longo do tempo",
+       subtitle = "Faixas cinza representam choques econômicos",
+       x = "Ano", y = "Valor")
+graf.longo.tempo.1
+```
+
+
+### Conclusão:
+
+• A Selic apresenta forte oscilação conforme os ciclos de política monetária, enquanto a dívida bruta segue trajetória mais persistente.
+
+• Entre 2003 e 2010, observa-se queda na Selic e queda da dívida bruta como proporção do PIB — período de melhora fiscal e crescimento do PIB.
+
+• Em 2015–2016, a crise fiscal e recessão levam a aumento da dívida bruta e alta da Selic, ainda que de forma desfasada.
+
+• A dívida líquida, por descontar os ativos, é mais sensível à política monetária e flutuação cambial, o que aparece com mais volatilidade.
+
+• A correlação positiva entre Selic e dívida líquida sugere que os juros elevados aumentam a carga líquida da dívida, especialmente em momentos de política monetária mais contracionista.
+
+• Ao decompor a dívida em bruta e líquida, nota-se que a política monetária afeta ambas, mas de forma distinta: a dívida líquida é mais reativa aos juros, enquanto a bruta segue mais associada ao resultado primário e crescimento do PIB.
+
+
+- **Exemplo:**
+Se o governo aumenta a Selic:
+  
+  • Ele paga mais juros sobre a dívida pública.
+  
+  • Isso piora o resultado nominal e primário.
+  
+  • Como a dívida líquida = dívida bruta − ativos, e os ativos mudam pouco no curto prazo
+  
+  • A dívida líquida sobe com mais força, refletindo o impacto dos juros reais pagos.
+  
+  • Enquanto a divída bruta inclui os ativas, diminuindo o impactos dos juros reais.
+
+
+
+# **2) Composição dos gastos**
+
+
+
+
+
+
+# **3) Déficit primário e nominal**
+
+#### Vamos analisar a trajetória dos déficit, trazendo a evolução da Selic, para entendermos certas mudanças
+
+```{r, echo=FALSE}
+# Buscar séries do Banco Central
+deficit_primario <- get_series(c(Deficit_Primario = 5793),
+                               start_date = "2002-01-01",
+                               end_date = "2025-03-01")
+
+deficit_nominal <- get_series(c(Deficit_Nominal = 5727),
+                              start_date = "2002-01-01",
+                              end_date = "2025-03-01")
+
+# Preparar os dados
+df <- merge(deficit_nominal, deficit_primario, by = "date")
+colnames(df) <- c("date", "Deficit_Nominal", "Deficit_Primario")
+
+# Criar o gráfico com área entre as curvas
+g <- ggplot(df, aes(x = date)) +
+  geom_ribbon(aes(ymin = pmin(Deficit_Nominal, Deficit_Primario),
+                  ymax = pmax(Deficit_Nominal, Deficit_Primario)),
+              fill = "grey70", alpha = 0.4) +
+  geom_hline(yintercept = 0,
+             linetype = "twodash",
+             color = "black",
+             linewidth = 0.6) +
+  geom_line(aes(y = Deficit_Nominal, color = "Déficit Nominal"), size = 1) +
+  geom_line(aes(y = Deficit_Primario, color = "Déficit Primário"), size = 1) +
+  labs(title = "Déficit Primário vs Nominal (% do PIB)",
+       x = "Ano", y = "% do PIB",
+       color = "Tipo de Déficit") +
+  theme_minimal()
+
+# Gráfico interativo
+grafico_interativo <- ggplotly(g, tooltip = c("x", "y", "color"))
+grafico_interativo
+```
+
+## Evolução da Taxa SELIC
+
+```{r, echo=FALSE}
+# Buscar dados da SELIC
+Df = ipeadata("BM366_TJOVER366")
+SELIC <- Df %>%
+  select(date, value) %>% 
+  rename(Data = date, Selic = value) %>% 
+  filter(Data >= as.Date("2002-01-01"))
+
+# Plotar SELIC
+ggplot(SELIC, aes(x = Data, y = Selic)) +
+  geom_line(color = "black", size = 1) +
+  labs(
+    title = "Evolução da Taxa SELIC",
+    x = "Data",
+    y = "SELIC (%)"
+  ) +
+  theme_minimal()
+```
+
+## Análise
+
+O equilíbrio fiscal ocorre quando as contas públicas estão balanceadas, ou seja, Receita = Despesa. Quando o **Déficit Primário** (Receita – Despesa) ou **Déficit Nominal** (Déficit Primário – pagamento dos juros) crescem, as despesas do Governo aumentam e causam um desequilíbrio fiscal. Esse desajuste fica mais evidente no longo prazo, com o pagamento dos juros, que influencia a política monetária e, consequentemente, os próprios juros da dívida.
+
+
+
+# **4) Conta corrente X Investimento estrangeiro**
+
+## Saldo em Conta Corrente e Investimento Externo Direto
+#### Primeiramente vamos analisar o comportamento do saldo em conta corrente e do investimento externo direto indivudualmente.
+
+
+```{r Grafico saldo e invest, echo=FALSE}
+ggplot(saldo_corrente, aes(x = date, y= saldo)) + 
+  geom_line(color = "purple", size = 1) +
+  labs(title = "Saldo em Transações Correntes",
+       x = "Ano",
+       y = "Saldo em US$ milhões")
+
+ggplot(investimento, aes (x = date, y = IED)) + 
+  geom_line(color = "red", size = 1) + 
+  labs(title = "nvestimento Externo Direto",
+       x = "Ano",
+       y = "Investimento em US$ milhões")
+
+```
+
+#### Agora, vamos analisar os dois juntos, para achar uma correlação (visualmente). Foi possível observar que o saldo corrente e o investimento externo direto tem relação negativa, como poedmos observar pelo gráfico, quando o saldo em conta corrente está baixo, o investimento externo ajuda a sair da crise, financiando os défcits. Para melhorar ainda mais a análise calculamos a correlação e o valor encontrado foi  -0.8356681. Confirmando exatamente o que conseguimos analisar pelo gráfico ou seja, à mediada que o saldo em conta corrente cai, o investimento extrangeiro sobe, provavelmente para fincanciar a melhora, e quando sobe novamente, o investimento cai.
+
+```{r Grafico saldo x invest, echo=FALSE}
+ggplot(combinado, aes(x = date, y = valor, color = variavel)) +
+  geom_line(size = 1.5) +
+  scale_y_continuous(labels = label_comma(scale = 1)) + #para deixar os valoes de y melhores
+  labs(title = "Saldo em Transações Correntes vs Investimento Externo Direto",
+       x = "Ano",
+       y = "US$ milhões",
+       color = "Variável") +
+   scale_color_manual(values = c("purple", "red"))
+```
+
+## Impactos do Capital Extrangeiro na Macroeconomia
+
+#### A trajetória do Investimento Externo Direto (IED) no Brasil está diretamente ligada à estabilidade macroeconômica e revela uma relação historicamente negativa com o saldo em conta corrente. Após o Plano Real (1994), o controle da inflação atraiu capital estrangeiro, enquanto o saldo em conta corrente passou a registrar déficits crescentes. Entre 1997 e 2000, as privatizações ampliaram a entrada de IED, compensando desequilíbrios externos. Durante o boom das commodities (2004–2008), o IED voltou a crescer, sustentando déficits em conta corrente ampliados pelo aumento das importações. Mesmo após a crise de 2008, a entrada de capital seguiu forte até 2014, equilibrando temporariamente os desequilíbrios externos. Já em momentos de crise, como em 2002 e 2015, a saída de capital aprofundou a fragilidade externa. Assim, o IED frequentemente tem o papel de financiar déficits em conta corrente, reforçando a correlação inversa entre essas variáveis.
+
+```{r Grafico impactos, echo=FALSE}
+a = ggplot(investimento_2, aes (x = date, y = IED)) + 
+  geom_line(color = "red", size = 1) + 
+  labs(title = "Investimento Externo Direto ao longo dos anos") 
+ggplotly(a)
+```
+
+
+
+# **5) Dívida bruta e líquida**
+
+##### Vamos analisar a trajetória da Dívida bruta e líquida, trazendo uma tabela com indicadores macroeconômicos, para entendermos certas mudanças
+```{r, echo=FALSE}
+# Buscar séries do Banco Central
+
+Divida_Bruta <- get_series(c(Divida_Bruta = 13762),
+                           start_date = "2008-01-01",
+                           end_date = "2025-03-01")
+
+Divida_Liquida <- get_series(c(Divida_Liquida = 4536),
+                           start_date = "2008-01-01",
+                           end_date = "2025-03-01")
+
+# Juntando as séries num único dataframe
+Divida <- Divida_Bruta %>%
+  left_join(Divida_Liquida, by = "date")
+
+# Criando o gráfico
+ggplot(Divida, aes(x = date)) +
+  geom_line(aes(y = Divida_Bruta, color = "Dívida Bruta (DBGG)"), size = 1.2) +
+  geom_line(aes(y = Divida_Liquida, color = "Dívida Líquida (DLSP)"), size = 1.2) +
+  scale_color_manual(values = c("Dívida Bruta (DBGG)" = "red", "Dívida Líquida (DLSP)" = "blue")) +
+  labs(title = "Dívida Bruta e Líquida",
+       x = "Ano",
+       y = "Percentagem (%)",
+       color = "") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom",        # Legenda abaixo do gráfico
+        legend.title = element_blank(),    # Remove o título da legenda
+        legend.text = element_text(size = 12)  # Tamanho da fonte da legenda
+  )
+```
+
+## Tabela
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+# Tabela
+# Buscar séries do Banco Central
+Crescimento_PIB <- get_series(c(Crescimento_PIB = 7326),
+                              start_date = "2008-01-01",
+                              end_date = "2025-03-01")
+
+IPCA_Acumulado_Meses <- get_series(c(IPCA = 13522),
+                                   start_date = "2008-01-01",
+                                   end_date = "2025-03-01")
+
+deficit_primario <- get_series(c(Deficit_Primario = 5793),
+                               start_date = "2002-01-01",
+                               end_date = "2025-03-01")
+
+Df = ipeadata("PAN_TJOVER")
+SELIC_Anual <- Df %>%
+  select(date, value) %>% 
+  rename(Data = date, Selic = value) %>% 
+  filter(Data >= as.Date("2008-01-01"))
+
+# Filtrando apenas os meses de janeiro
+IPCA_Anual <- IPCA_Acumulado_Meses %>%
+  filter(format(date, "%m") == "01")
+
+SELIC_Janeiro <- SELIC_Anual %>%
+  filter(format(Data, "%m") == "01")
+
+# Transformando o déficit em superávit e filtrando o mês de janeiro a partir de 2008
+Superavit_Primario <- deficit_primario %>%
+  mutate(Superávit_Primário = Deficit_Primario * -1) %>%
+  select(date, Superávit_Primário) %>%
+  filter(format(date, "%m") == "01" & date >= as.Date("2008-01-01"))
+
+# Criando a tabela inicial
+Tabela_Resumo <- data.frame(
+  Tipo = c("Superávit Primário", "Crescimento do PIB", "IPCA", "SELIC Anual")
+) %>%
+  mutate(across(.fns = as.character))  # Permite texto e números juntos
+
+# Adicionando as colunas de cada ano
+anos <- unique(format(IPCA_Anual$date, "%Y"))
+
+for (ano in anos) {
+  # Superávit Primário
+  valor_superavit <- Superavit_Primario %>%
+    filter(format(date, "%Y") == ano) %>%
+    pull(Superávit_Primário)
+  
+  # IPCA (Janeiro)
+  valor_ipca <- IPCA_Anual %>%
+    filter(format(date, "%Y") == ano) %>%
+    pull(IPCA)
+  
+  # Crescimento do PIB
+  valor_pib <- Crescimento_PIB %>%
+    filter(format(date, "%Y") == ano & format(date, "%m") == "01") %>%
+    pull(Crescimento_PIB)
+  
+  # SELIC (Janeiro)
+  valor_selic <- SELIC_Janeiro %>%
+    filter(format(Data, "%Y") == ano) %>%
+    pull(Selic)
+  
+  # Adicionando os valores com verificação de ausência
+  Tabela_Resumo[[ano]] <- c(
+    ifelse(length(valor_superavit) == 0, NA, valor_superavit),
+    ifelse(length(valor_pib) == 0, NA, valor_pib),
+    ifelse(length(valor_ipca) == 0, NA, valor_ipca),
+    ifelse(length(valor_selic) == 0, NA, valor_selic)
+  )
+}
+
+# Arredondando os valores da tabela para duas casas decimais (exceto a coluna "Tipo")
+Tabela_Resumo_Arredondada <- Tabela_Resumo %>%
+  mutate(across(
+    .cols = -Tipo,
+    .fns = ~ round(as.numeric(.), 2)
+  ))
+
+# Print tabela
+Tabela_Resumo_Arredondada %>%
+  kable(
+    caption = "Tabela Resumo dos Indicadores Econômicos (2008-2025)",
+    align = "c"
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    full_width = FALSE,
+    position = "center",
+    font_size = 14
+  )
+```
+
+## Análise
+A dívida pública bruta e líquida ao longo do tempo variou nos diferentes ciclos econômicos do Brasil. Desde o começo do governo Lula, ano 2002, o país veio ganhando divisas e, consequentemente, reduzindo sua dívida pública. No entanto, a partir de 2012/2013, com o recuo do crescimento do PIB, aumento da inflação e aumento da taxa Selic, a dívida pública começou a crescer descontroladamente até 2020. No ano da pandemia, houve outra explosão da dívida pública, crescendo 12% (DBGG), decorrente de maiores gastos do Governo e redução das receitas. Logo depois, voltamos a um período de 2 anos que a dívida pública reduzindo, com o crescimento do PIB e IPCA controle, o Governo conseguiu reduzir 15% da DBGG. Nos últimos anos, a partir de 2023, o Brasil voltou a ver sua dívida pública crescer, principalmente motivada pelo aumento dos gastos públicos no crescimento do PIB.
